@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dev Analytics Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        body{
+            background:#f5f7fb;
+        }
+
+        .header{
+            background:white;
+            padding:20px 40px;
+            border-bottom:1px solid #eee;
+        }
+
+        .dev-list{
+            background:white;
+            padding:20px;
+            border-radius:10px;
+        }
+
+        .card{
+            border:none;
+            border-radius:12px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .section{
+            margin-top:25px;
+        }
+
+        canvas{
+            height:250px !important;
+        }
+
+        .big-chart canvas{
+            height:350px !important;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+
+<div class="header d-flex justify-content-between align-items-center">
+    <h3>Developer Analytics</h3>
+    <div>
+        <button id="generateBtn" class="btn btn-primary">Сгенерировать отчет</button>
+    </div>
+</div>
+
+
+<div class="container-fluid mt-4">
+
+    <!-- DEVELOPERS LIST -->
+
+    <div class="dev-list mb-4">
+        <h5 class="mb-3">Разработчики</h5>
+        <div class="row">
+            {% for dev in developers %}
+                <div class="col-md-2 mb-2">
+                    <a href="/developer/{{ dev.name }}" style="text-decoration: none" class="text-dark">
+                    <div class="badge bg-light text-dark w-100 p-2">
+                            {{ dev.name }}
+                    </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+
+    <!-- TOP 3 CHARTS -->
+
+    <div class="row section">
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h6>Коммиты</h6>
+                <canvas id="chart1"></canvas>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h6>Выполненные задачи</h6>
+                <canvas id="chart2"></canvas>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h6>Заведенные баги</h6>
+                <canvas id="chart3"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- BIG GRAPH + PIE -->
+
+    <div class="row section">
+
+        <div class="col-md-9">
+            <div class="card p-3 big-chart">
+                <h5>Тренд продуктивности команды</h5>
+                <canvas id="bigChart"></canvas>
+            </div>
+        </div>
+
+
+        <div class="col-md-3">
+            <div class="card p-3">
+                <h6>Распределение задач</h6>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row section">
+        <div class="col-md-12">
+            <div class="card p-3">
+                <h5 class="mb-3">Аномалии</h5>
+                <div class="accordion" id="anomalyAccordion">
+
+                    <!--INFO-->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#infoAnomalies">
+                                🔵️ Некритичные аномалии
+                                <span class="badge bg-info text-dark ms-2">
+                                    {{ anomalies | selectattr('severity', 'equalto', 'low') | list | length }}
+                                </span>
+                            </button>
+                        </h2>
+
+                        <div id="infoAnomalies"
+                             class="accordion-collapse collapse"
+                             data-bs-parent="#anomalyAccordion">
+                            <div class="accordion-body">
+                                <ul class="list-group">
+                                    {% for task in anomalies %}
+                                    {% if task.severity == "low" %}
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span class="text-muted">
+                                                {{ task.id }}
+                                            </span>
+
+                                            <span>
+                                                {{ task.summary }}
+                                            </span>
+
+                                            <span class="badge bg-info">
+                                                {{ task.type }}
+                                            </span>
+
+                                            <span class="text-muted">
+                                                {{ task.value }}
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FIXABLE -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#fixableAnomalies">
+                                ⚠️ Предупреждения
+                                <span class="badge bg-warning text-dark ms-2">
+                                    {{ anomalies | selectattr('severity', 'equalto', 'medium') | list | length }}
+                                </span>
+                            </button>
+                        </h2>
+
+                        <div id="fixableAnomalies"
+                             class="accordion-collapse collapse"
+                             data-bs-parent="#anomalyAccordion">
+                            <div class="accordion-body">
+                                <ul class="list-group">
+                                    {% for task in anomalies %}
+                                    {% if task.severity == "medium" %}
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span class="text-muted">
+                                                {{ task.id }}
+                                            </span>
+
+                                            <span>
+                                                {{ task.summary }}
+                                            </span>
+
+                                            <span class="badge bg-warning">
+                                                {{ task.type }}
+                                            </span>
+
+                                            <span class="text-muted">
+                                                {{ task.value }}
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CRITICAL -->
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header d-flex align-items-center">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#criticalAnomalies">
+                                🚨 Критические аномалия
+                                <span class="badge bg-danger ms-2">
+                                    {{ anomalies | selectattr('severity', 'equalto', 'high') | list | length }}
+                                </span>
+                            </button>
+                        </h2>
+
+                        <div id="criticalAnomalies"
+                             class="accordion-collapse collapse"
+                             data-bs-parent="#anomalyAccordion">
+                            <div class="accordion-body">
+                                <ul class="list-group">
+                                    {% for task in anomalies %}
+                                    {% if task.severity == "high" %}
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span class="text-muted">
+                                                {{ task.id }}
+                                            </span>
+
+                                            <span>
+                                                {{ task.summary }}
+                                            </span>
+
+                                            <span class="badge bg-danger">
+                                                {{ task.type }}
+                                            </span>
+
+                                            <span class="text-muted">
+                                                {{ task.value }}
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HORIZONTAL BAR -->
+
+    <div class="row section">
+        <div class="col-md-12">
+            <div class="card p-3">
+                <h5>Самые продуктивные разработчики</h5>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- TEXT CARDS -->
+
+    <div class="row section">
+
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <h6>Выводы</h6>
+                <p style="white-space: pre-line;">
+                    {{ ai_sections.info.replace('\n', '<br>') | safe }}
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <h6>Предупреждения</h6>
+                <p style="white-space: pre-line;">
+                    {{ ai_sections.warn.replace('\n', '<br>') | safe }}
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <h6>ИИ-рекомендации</h6>
+                <p style="white-space: pre-line;">
+                    {{ ai_sections.rec.replace('\n', '<br>') | safe }}
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+
+</div>
+
+<script>
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+        try {
+            await fetch("/generate-report", {
+                method: "POST"
+            });
+
+            // после выполнения просто обновляем страницу
+            location.reload();
+
+        } catch (e) {
+            console.error("Ошибка:", e);
+        }
+    });
+</script>
+
+<script>
+
+    const labels = {{ labels | tojson }};
+    const commits = {{ commits | tojson }};
+    const closed = {{ closed | tojson }};
+    const bugs = {{ bugs | tojson }};
+
+    function randomData(){
+        return Array.from({length:7}, () => Math.floor(Math.random()*100))
+    }
+
+
+    new Chart(document.getElementById('chart1'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: commits,
+                borderColor: '#4e73df',
+                tension: 0.4
+            }]
+        },
+        options: { plugins: { legend: false } }
+    });
+
+
+    new Chart(document.getElementById('chart2'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: closed,
+                backgroundColor: '#1cc88a'
+            }]
+        },
+        options: { plugins: { legend: false } }
+    });
+
+
+    // chart3
+
+    new Chart(document.getElementById('chart3'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: bugs,
+                borderColor: '#e74a3b'
+            }]
+        },
+        options: {
+            plugins: { legend: false },
+            scales: {
+                y: {
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+
+
+
+
+    // big chart
+
+    const monthsRaw = {{ months | tojson }};
+    const dataRaw = {{ sp_data | tojson }};
+    const currentMonth = {{ current_month }};
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const labels_b = monthsRaw.map(m => monthNames[m-1]);
+
+    const actualData = dataRaw.map((v, i) => i < 6 ? v : null);
+    const futureData = dataRaw.map((v, i) => i >= 6 ? v : null);
+
+    new Chart(document.getElementById('bigChart'), {
+        type: 'line',
+        data: {
+            labels: labels_b,
+            datasets: [
+                {
+                    label: 'Productivity (actual)',
+                    data: actualData,
+                    borderColor: '#4e73df',
+                    tension: 0.4
+                },
+                {
+                    label: 'Future',
+                    data: futureData,
+                    borderColor: '#4e73df',
+                    borderDash: [5, 5],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            plugins: { legend: false },
+            scales: {
+                y: {
+                    min: 0,        // Минимальное значение
+                    max: 100,      // Всегда фиксированный максимум
+                    ticks: {
+                        // Добавляем знак % к подписям на оси
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+
+    // pie chart
+
+    const pieLabels = {{ pie_labels | tojson }};
+    const pieData = {{ pie_data | tojson }};
+
+    new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: pieLabels,
+            datasets: [{
+                data: pieData,
+                backgroundColor: [
+                    '#e33b3b',
+                    '#1cc88a',
+                    '#36b9cc'
+                ]
+            }]
+        }
+    });
+
+
+
+    // horizontal bars
+
+    const barLabels = {{ bar_labels | tojson }};
+    const barData = {{ bar_data | tojson }};
+
+    new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+            labels: barLabels,
+            datasets: [{
+                label: 'Score (%)',
+                data: barData,
+                backgroundColor: '#4e73df'
+            }]
+        },
+        options: {
+            indexAxis: 'y',  // горизонтальные бары
+            scales: {
+                x: {
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';  // добавляем % на оси X
+                        }
+                    },
+                    max: 100  // максимум 100%
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+</script>
+
+
+</body>
+</html>
